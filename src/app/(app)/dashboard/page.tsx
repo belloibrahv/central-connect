@@ -28,6 +28,19 @@ export default async function DashboardPage() {
       })
     : [];
 
+  type BookingWithRelations = {
+    id: string;
+    status: string;
+    bed: { label: string; room: { hostel: { name: string } } };
+    term: { startDate: Date; endDate: Date };
+  };
+
+  type IssueWithRelations = {
+    id: string;
+    category: string;
+    status: string;
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -39,19 +52,21 @@ export default async function DashboardPage() {
         <div className="card">
           <h2 className="font-display text-lg">Active booking</h2>
           {bookings.length === 0 ? (
-            <p className="mt-3 text-sm text-ink/60">No booking yet. Go to “Book a bed”.</p>
+            <p className="mt-3 text-sm text-ink/60">No booking yet. Go to &quot;Book a bed&quot;.</p>
           ) : (
-            bookings.map((booking) => (
-              <div key={booking.id} className="mt-4 text-sm">
-                <p className="font-medium">{booking.bed.room.hostel.name}</p>
-                <p className="text-ink/60">
-                  Bed {booking.bed.label}, status {booking.status}
-                </p>
-                <p className="text-ink/60">
-                  Term: {booking.term.startDate.toDateString()} - {booking.term.endDate.toDateString()}
-                </p>
-              </div>
-            ))
+            <div>
+              {(bookings as BookingWithRelations[]).map((booking) => (
+                <div key={booking.id} className="mt-4 text-sm">
+                  <p className="font-medium">{booking.bed.room.hostel.name}</p>
+                  <p className="text-ink/60">
+                    Bed {booking.bed.label}, status {booking.status}
+                  </p>
+                  <p className="text-ink/60">
+                    Term: {booking.term.startDate.toDateString()} - {booking.term.endDate.toDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
           )}
         </div>
         <div className="card">
@@ -60,7 +75,7 @@ export default async function DashboardPage() {
             <p className="mt-3 text-sm text-ink/60">No issues reported yet.</p>
           ) : (
             <ul className="mt-4 space-y-3 text-sm">
-              {issues.map((issue) => (
+              {(issues as IssueWithRelations[]).map((issue) => (
                 <li key={issue.id} className="flex items-center justify-between">
                   <span>{issue.category}</span>
                   <span className="text-ink/60">{issue.status}</span>
