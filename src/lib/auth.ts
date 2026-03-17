@@ -1,4 +1,5 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import { getServerSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
@@ -9,7 +10,7 @@ const credentialsSchema = z.object({
   role: z.string()
 });
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" as const },
   pages: { signIn: "/login", error: "/login" },
   providers: [
@@ -61,4 +62,8 @@ export const authOptions = {
   }
 };
 
-export const { handlers, auth } = NextAuth(authOptions);
+export const auth = () => getServerSession(authOptions);
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
