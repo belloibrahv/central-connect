@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/prisma";
 
-const hostelInclude = {
-  roomTypes: true,
-  terms: { where: { status: "OPEN" as const } }
-} as const;
-
 export default async function BookPage() {
   const hostels = await prisma.hostel.findMany({
-    include: hostelInclude
-  });
+    include: {
+      roomTypes: true,
+      terms: { where: { status: "OPEN" as const } }
+    }
+  }) as unknown as Array<{
+    id: string;
+    name: string;
+    city: string;
+    genderPolicy: string;
+    roomTypes: Array<{ id: string; name: string; capacity: number; basePrice: number }>;
+  }>;
 
   return (
     <div className="space-y-8">
