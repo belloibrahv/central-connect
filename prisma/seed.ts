@@ -88,10 +88,12 @@ async function main() {
       create: hostel
     });
 
+    const roomTypesData = [];
+
     for (const type of roomTypes) {
       const basePrice = pricing[hostel.region as keyof typeof pricing][type.name as keyof typeof pricing["South-West"]];
 
-      await prisma.roomType.upsert({
+      const roomType = await prisma.roomType.upsert({
         where: { hostelId_name: { hostelId: created.id, name: type.name } },
         update: { capacity: type.capacity, basePrice },
         create: {
@@ -101,6 +103,7 @@ async function main() {
           basePrice
         }
       });
+      roomTypesData.push(roomType);
     }
 
     await prisma.term.upsert({
@@ -121,6 +124,47 @@ async function main() {
         status: TermStatus.OPEN
       }
     });
+
+    const floors = ["Ground", "1st", "2nd", "3rd", "4th"];
+    const roomsPerType = 8;
+
+    for (const roomType of roomTypesData) {
+      for (let r = 1; r <= roomsPerType; r++) {
+        const floor = floors[Math.floor((r - 1) / 4)] || "Ground";
+        const roomLabel = `${roomType.name}-${r.toString().padStart(2, "0")}`;
+
+        const room = await prisma.room.upsert({
+          where: {
+            hostelId_label: { hostelId: created.id, label: roomLabel }
+          },
+          update: { roomTypeId: roomType.id, floor },
+          create: {
+            hostelId: created.id,
+            roomTypeId: roomType.id,
+            label: roomLabel,
+            floor
+          }
+        });
+
+        for (let b = 1; b <= roomType.capacity; b++) {
+          const bedLabel = `${String.fromCharCode(64 + b)}`;
+
+          await prisma.bed.upsert({
+            where: {
+              roomId_label: { roomId: room.id, label: bedLabel }
+            },
+            update: { hostelId: created.id },
+            create: {
+              roomId: room.id,
+              hostelId: created.id,
+              label: bedLabel
+            }
+          });
+        }
+      }
+    }
+
+    console.log(`Seeded ${created.name}: ${roomTypesData.length} room types, ${roomsPerType * roomTypesData.length} rooms`);
   }
 }
 

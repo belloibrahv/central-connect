@@ -44,6 +44,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid bed or term" }, { status: 400 });
   }
 
+  const existingBooking = await prisma.booking.findFirst({
+    where: {
+      bedId,
+      termId,
+      isActive: true,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      OR: [
+        { holdExpiresAt: null },
+        { holdExpiresAt: { gt: new Date() } }
+      ]
+    }
+  });
+
+  if (existingBooking) {
+    if (existingBooking.status === "CONFIRMED") {
+      return NextResponse.json({ error: "This bed is already booked" }, { status: 409 });
+    }
+    if (existingBooking.userId === user.id) {
+      return NextResponse.json({ error: "You already have a pending booking for this bed" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "This bed is currently being booked by another user" }, { status: 409 });
+  }
+
+  const existingUserBooking = await prisma.booking.findFirst({
+    where: {
+      userId: user.id,
+      termId,
+      isActive: true,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      OR: [
+        { holdExpiresAt: null },
+        { holdExpiresAt: { gt: new Date() } }
+      ]
+    }
+  });
+
+  if (existingUserBooking) {
+    return NextResponse.json({ error: "You already have a booking for this term" }, { status: 409 });
+  }
+
   const holdExpiresAt = addMinutes(new Date(), 10);
   const price = bed.room.roomType.basePrice;
 
