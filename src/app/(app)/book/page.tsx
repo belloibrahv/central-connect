@@ -1,8 +1,19 @@
 import { prisma } from "@/lib/prisma";
+import { Hostel, RoomType, Term } from "@prisma/client";
+
+const hostelInclude = {
+  roomTypes: true,
+  terms: { where: { status: "OPEN" as const } }
+} as const;
+
+type HostelWithRelations = Hostel & {
+  roomTypes: RoomType[];
+  terms: Term[];
+};
 
 export default async function BookPage() {
   const hostels = await prisma.hostel.findMany({
-    include: { roomTypes: true, terms: { where: { status: "OPEN" } } }
+    include: hostelInclude
   });
 
   return (
@@ -13,7 +24,7 @@ export default async function BookPage() {
       </div>
 
       <div className="grid gap-6">
-        {hostels.map((hostel) => (
+        {hostels.map((hostel: HostelWithRelations) => (
           <div key={hostel.id} className="card">
             <div className="flex items-start justify-between">
               <div>
@@ -26,7 +37,7 @@ export default async function BookPage() {
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {hostel.roomTypes.map((type) => (
+              {hostel.roomTypes.map((type: RoomType) => (
                 <div key={type.id} className="rounded-xl border border-ink/10 p-4">
                   <p className="font-medium">{type.name}</p>
                   <p className="text-sm text-ink/60">{type.capacity} bed(s)</p>
