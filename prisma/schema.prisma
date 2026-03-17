@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  RESIDENT
+  HOSTEL_ADMIN
+  SUPER_ADMIN
+  FINANCE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum GenderPolicy {
+  MALE
+  FEMALE
+  MIXED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum IssueStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum TermType {
+  FULL_SESSION
+  SEMESTER
+}
+
+enum TermStatus {
+  OPEN
+  CLOSED
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String?
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String?
+  role         UserRole @default(RESIDENT)
+  emailVerified DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile      ResidentProfile?
+  bookings     Booking[]
+  payments     Payment[]
+  issues       Issue[]
+  otps         OtpCode[]
+  pendingOtps  PendingOtp[]
+  adminOf      HostelAdmin[]
+}
+
+model ResidentProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  gender    Gender?
+  dateOfBirth DateTime?
+  address   String?
+  hostelId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+  hostel    Hostel?  @relation(fields: [hostelId], references: [id])
+}
+
+model Hostel {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  city         String
+  region       String
+  genderPolicy GenderPolicy  @default(MIXED)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  roomTypes    RoomType[]
+  rooms        Room[]
+  beds         Bed[]
+  terms        Term[]
+  issues       Issue[]
+  admins       HostelAdmin[]
+  residents    ResidentProfile[]
+}
+
+model HostelAdmin {
+  id        String   @id @default(cuid())
+  userId    String
+  hostelId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  hostel Hostel @relation(fields: [hostelId], references: [id])
+
+  @@unique([userId, hostelId])
+}
+
+model RoomType {
+  id         String   @id @default(cuid())
+  hostelId   String
+  name       String
+  capacity   Int
+  basePrice  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  hostel     Hostel   @relation(fields: [hostelId], references: [id])
+  rooms      Room[]
+
+  @@unique([hostelId, name])
+}
+
+model Room {
+  id         String   @id @default(cuid())
+  hostelId   String
+  roomTypeId String
+  label      String
+  floor      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  hostel     Hostel   @relation(fields: [hostelId], references: [id])
+  roomType   RoomType @relation(fields: [roomTypeId], references: [id])
+  beds       Bed[]
+  issues     Issue[]
+
+  @@unique([hostelId, label])
+}
+
+model Bed {
+  id        String   @id @default(cuid())
+  roomId    String
+  hostelId  String
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room      Room     @relation(fields: [roomId], references: [id])
+  hostel    Hostel   @relation(fields: [hostelId], references: [id])
+  bookings  Booking[]
+
+  @@unique([roomId, label])
+}
+
+model Term {
+  id        String    @id @default(cuid())
+  hostelId  String
+  termType  TermType  @default(FULL_SESSION)
+  startDate DateTime
+  endDate   DateTime
+  status    TermStatus @default(OPEN)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  hostel    Hostel    @relation(fields: [hostelId], references: [id])
+  bookings  Booking[]
+
+  @@unique([hostelId, termType, startDate, endDate])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  userId        String
+  bedId         String
+  termId        String
+  status        BookingStatus @default(PENDING)
+  isActive      Boolean       @default(true)
+  price         Int
+  currency      String        @default("NGN")
+  holdExpiresAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id])
+  bed           Bed           @relation(fields: [bedId], references: [id])
+  term          Term          @relation(fields: [termId], references: [id])
+  payments      Payment[]
+
+  @@unique([bedId, termId, isActive])
+  @@unique([userId, termId, isActive])
+}
+
+model Payment {
+  id           String        @id @default(cuid())
+  bookingId    String
+  userId       String
+  amount       Int
+  currency     String        @default("NGN")
+  provider     String        @default("PAYSTACK")
+  providerRef  String?
+  status       PaymentStatus @default(INITIATED)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  booking      Booking       @relation(fields: [bookingId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+}
+
+model Issue {
+  id          String      @id @default(cuid())
+  userId      String
+  hostelId    String
+  roomId      String?
+  location    String?
+  category    String
+  description String
+  status      IssueStatus @default(NEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  resolvedAt  DateTime?
+
+  user        User        @relation(fields: [userId], references: [id])
+  hostel      Hostel      @relation(fields: [hostelId], references: [id])
+  room        Room?       @relation(fields: [roomId], references: [id])
+  updates     IssueUpdate[]
+}
+
+model IssueUpdate {
+  id        String   @id @default(cuid())
+  issueId   String
+  note      String
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id])
+}
+
+model OtpCode {
+  id        String     @id @default(cuid())
+  userId    String
+  code      String
+  channel   OtpChannel
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+}
+
+model PendingOtp {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
